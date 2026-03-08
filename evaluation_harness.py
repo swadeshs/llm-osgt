@@ -374,8 +374,8 @@ class CoinGame(Game):
             state = np.zeros((4, self.board_size, self.board_size), dtype=np.float32)
             state[0, self.player_a_pos[0], self.player_a_pos[1]] = 1
             state[1, self.player_b_pos[0], self.player_b_pos[1]] = 1
-            state[2, self.red_coin_pos[0], self.red_coin_pos[1]] = 1 # Player A's coin
-            state[3, self.blue_coin_pos[0], self.blue_coin_pos[1]] = 1 # Player B's coin
+            state[2, self.red_coin_pos[0], self.red_coin_pos[1]] = 1 # Player A coin
+            state[3, self.blue_coin_pos[0], self.blue_coin_pos[1]] = 1 # Player B coin
             return state
 
         def _move_player(self, pos, action):
@@ -571,7 +571,7 @@ class CoinGame(Game):
         return base_ns
 
 # --- Helper functions for CoinGame ---
-# Defined globally so they can be added to the execution namespace.
+# Defined globally for ease of addition to the execution namespace
 def find_my_position(state: np.ndarray, player_id_char: str) -> Optional[Tuple[int, int]]:
     """Finds the (row, col) of the specified player."""
     layer = 0 if player_id_char == 'A' else 1
@@ -608,8 +608,6 @@ def get_adjacent_positions(pos: Tuple[int, int], board_size: int = 3) -> Dict[st
         'LEFT': (r, (c - 1) % board_size),
         'RIGHT': (r, (c + 1) % board_size)
     }
-# --- END ADDITION ---
-
 
 """
 ——————————————————————————————————————————————————————————————————————————————————————
@@ -637,7 +635,6 @@ class StrategyGenerator:
         Generates, saves, and compiles a strategy with resampling on failure.
         Returns the program name and the number of attempts taken.
         """
-        # (Directory setup code remains the same...)
         seed_dir = output_dir / f"seed_{seed}"
         prompts_dir = seed_dir / "prompts"
         textual_strategies_dir = seed_dir / "textual_strategies"
@@ -662,7 +659,6 @@ class StrategyGenerator:
         for attempt in range(1, max_attempts + 1):
             print(f"  Attempt {attempt}/{max_attempts}...")
             try:
-                # (Stages 1-3 for generation and compilation remain the same...)
                 print(f"    Stage 1: Generating textual strategy...")
                 text_prompt = self.text_prompt_template.format(**full_generation_context)
                 textual_strategy = agent.llm_interface.generate(text_prompt, max_tokens=1500, temperature=0.6)
@@ -686,7 +682,7 @@ class StrategyGenerator:
                 exec(generated_code, exec_ns)
                 func = exec_ns[func_name]
                 
-                # --- Stage 4: Perform Runtime Validation Suite ---
+                # --- Runtime Validation ---
                 print(f"    Stage 4: Performing runtime validation suite...")
                 if isinstance(self.game, CoinGame):
                     board_size = self.game.board_size
@@ -713,7 +709,6 @@ class StrategyGenerator:
                     # Test Case 2: Non-empty history
                     func(['C', 'D'], ['D', 'C'], "# dummy code", "# dummy code")
 
-                # --- Success Case ---
                 if strat_base_name in PROGRAMS:
                     print(f"  Warning: Overwriting already registered program '{strat_base_name}'.")
                 PROGRAMS[strat_base_name] = {'function': func, 'code': generated_code, 'agent_label': agent.label}
@@ -872,7 +867,7 @@ class EvolutionaryTournament(EvaluationForm):
 
         tournament_aware_prompt_template = None
         if isinstance(game, IPDGame):
-             # --- Tournament-Aware IPD Prompt ---
+             # --- Tournament-Aware IPD ---
             tournament_aware_prompt_template = textwrap.dedent("""
             You are an expert game theorist designing a winning strategy for a round of an Iterated Prisoner's Dilemma (IPD) evolutionary tournament.
             Your strategy will play {num_meta_rounds_per_pairing} meta-rounds against an opponent's strategy. The average outcome determines your payoff.
@@ -909,7 +904,7 @@ class EvolutionaryTournament(EvaluationForm):
             Focus on maximizing your average score over these {num_meta_rounds_per_pairing} meta-rounds against this opponent. Your primary objective remains: **{objective}**
             """)
             
-        # Pass the custom prompt to the generator
+        # Pass custom prompt
         tournament_strategy_generator = StrategyGenerator(game, custom_text_prompt_template=tournament_aware_prompt_template)
 
         payoff_matrices_list = []
@@ -921,15 +916,15 @@ class EvolutionaryTournament(EvaluationForm):
             print(f"\n===== STARTING SEED {seed}/{num_seeds} =====")
             PROGRAMS.clear()
 
-            # --- Generate INITIAL Strategies (using TOURNAMENT-AWARE prompt generator) ---
+            # --- Generate initial strategies ---
             print(f"--- Generating Initial Strategies for Seed {seed} (using tournament prompts) ---")
             initial_programs = {}
             context_initial = {
                  "evaluation_form": self.__class__.__name__,
-                 "meta_round_num": 0, # Indicate initial generation contextually
-                 "total_meta_rounds": self.num_meta_rounds_per_pairing, # Still relevant context
+                 "meta_round_num": 0, 
+                 "total_meta_rounds": self.num_meta_rounds_per_pairing,
                  "opponent_program_code": "# No opponent code available (initial generation).",
-                 "player_id_char": "A", # Placeholder, agent A/B determined later
+                 "player_id_char": "A",
                  "round_1_note": f"(Note: This is the initial strategy generation for seed {seed}. History is empty.)",
                  "meta_game_history_full": "[]",
                  "performance_context": "- This is the initial strategy generation. No performance history available.",
@@ -944,14 +939,12 @@ class EvolutionaryTournament(EvaluationForm):
                 if prog_name: initial_programs[agent.label] = prog_name
                 else: all_initial_generated = False; break
             if not all_initial_generated: continue
-            # --- End Initial Strategy Generation ---
 
-            # --- Calculate Payoff Matrix by running REPEATED GAMES ---
+            # --- Calculate Repeated Payoff Matrix---
             print(f"--- Calculating Payoff Matrix for Seed {seed} via Repeated Games ({self.num_meta_rounds_per_pairing} meta-rounds each) ---")
             current_payoff_matrix = np.zeros((num_types, num_types))
             pairing_log_data = []
-            # --- NEW: Dictionary to store the LAST program name generated for each agent in this seed ---
-            final_program_names_for_seed = initial_programs.copy() # Start with initial, update below
+            final_program_names_for_seed = initial_programs.copy()
 
             for i in range(num_types):
                 for j in range(num_types):
@@ -966,8 +959,7 @@ class EvolutionaryTournament(EvaluationForm):
                     pairing_scores_i = []
 
                     for meta_round in range(1, self.num_meta_rounds_per_pairing + 1):
-                        # ... (Context building remains the same) ...
-                        round_1_note = "(Pairing Meta-Round 1: History below is empty)" if meta_round == 1 else "" # Adjust round 1 note slightly
+                        round_1_note = "(Pairing Meta-Round 1: History below is empty)" if meta_round == 1 else ""
                         history_full = json.dumps(pairing_meta_game_history, indent=2) if pairing_meta_game_history else "[]"
                         last_score_i, last_score_j = (None, None)
                         if pairing_meta_game_history:
@@ -995,10 +987,8 @@ class EvolutionaryTournament(EvaluationForm):
                         prog_i_name, attempts_i = tournament_strategy_generator.generate_and_compile(agent_i, context_i, output_dir, seed)
                         prog_j_name, attempts_j = tournament_strategy_generator.generate_and_compile(agent_j, context_j, output_dir, seed)
 
-                        # --- NEW: Update the final program name for this agent type ---
                         if prog_i_name: final_program_names_for_seed[label_i] = prog_i_name
                         if prog_j_name: final_program_names_for_seed[label_j] = prog_j_name
-                        # --- End Update ---
 
                         prog_i_last_code = PROGRAMS.get(prog_i_name, {}).get('code', prog_i_last_code)
                         prog_j_last_code = PROGRAMS.get(prog_j_name, {}).get('code', prog_j_last_code)
@@ -1020,13 +1010,11 @@ class EvolutionaryTournament(EvaluationForm):
                         pairing_meta_game_history.append(round_summary)
                         pairing_log_data.append(round_summary)
                         print(f"    MR {meta_round}/{self.num_meta_rounds_per_pairing}: {label_i}={score_i}, {label_j}={score_j}")
-                    # --- End of mini DyadicMetaGame loop ---
 
                     final_payoff_i = np.mean(pairing_scores_i) if pairing_scores_i else 0
                     current_payoff_matrix[i, j] = final_payoff_i
                     print(f"  Finished pairing {label_i} vs {label_j}. Avg score for {label_i}: {final_payoff_i:.2f}")
 
-            # ... (rest of seed loop: append matrix, save logs) ...
             payoff_matrices_list.append(current_payoff_matrix)
             print(f"Payoff Matrix for Seed {seed} calculated based on repeated games.")
             seed_dir = output_dir / f"seed_{seed}"; seed_dir.mkdir(parents=True, exist_ok=True)
@@ -1041,27 +1029,23 @@ class EvolutionaryTournament(EvaluationForm):
                 sim_population = []
                 for moran_i in range(self.population_size):
                     agent_type_info = population.agents[moran_i % num_types]
-                    # Use the FINAL program name determined after the repeated games
                     prog_name = final_program_names_for_seed.get(agent_type_info.label)
                     if not prog_name or prog_name not in PROGRAMS:
                         print(f"  ERROR: Final program for {agent_type_info.label} not found for Moran process. Using initial.")
-                        prog_name = initial_programs.get(agent_type_info.label, "UnknownProgram") # Fallback
+                        prog_name = initial_programs.get(agent_type_info.label, "UnknownProgram") # fallback
                     sim_population.append({"label": agent_type_info.label, "prog_name": prog_name})
                 random.shuffle(sim_population)
-                # --- End Moran Initialization Change ---
 
                 population_history = []
-                # ... (rest of Moran logic - fitness calculation, selection, history saving - remains unchanged) ...
                 for step in range(self.num_moran_steps):
                     fitness_scores = {moran_i: 0 for moran_i in range(self.population_size)}
                     for i_fit in range(self.population_size):
                        for j_fit in range(i_fit + 1, self.population_size):
-                            # Ensure programs used here exist
                             prog_i_fit = sim_population[i_fit]['prog_name']
                             prog_j_fit = sim_population[j_fit]['prog_name']
                             if prog_i_fit not in PROGRAMS or prog_j_fit not in PROGRAMS:
                                  print(f"    WARNING: Skipping Moran match step {step} due to missing program ({prog_i_fit} or {prog_j_fit}).")
-                                 continue # Skip this match if a program isn't compiled/available
+                                 continue 
                             match_result_fit = game.run_match(prog_i_fit, prog_j_fit)
                             fitness_scores[i_fit] += match_result_fit.get('score_A', 0)
                             fitness_scores[j_fit] += match_result_fit.get('score_B', 0)
@@ -1136,7 +1120,7 @@ class EvaluationHarness:
 if __name__ == "__main__":
     load_api_keys()
 
-    # --- Experiment Configuration: Dyadic Coin Game (CPM vs DPM) ---
+    # --- Experiment Config ---
     # 1. Define Agent Prompts
     CPM_OBJECTIVE_PROMPT = (
         "Your objective is to maximize your final score. You seek to do this in most "
@@ -1191,7 +1175,7 @@ if __name__ == "__main__":
                 population_size=30, 
                 run_moran_process=True, 
                 num_moran_steps=100,
-                # rounds_per_match=0 # This parameter is unused, but included for completeness
+                # rounds_per_match=0
             ),
             "num_seeds": 10 
         },
@@ -1333,7 +1317,7 @@ if __name__ == "__main__":
     ]
     """
 
-    # --- 3. Run All Defined Experiments ---
+    # --- 3. Run Experiments ---
     for i, exp_config in enumerate(experiments_to_run):
         print(f"\n\n{'='*80}")
         print(f"STARTING EXPERIMENT {i+1}/{len(experiments_to_run)}: {exp_config['experiment_name']}")
