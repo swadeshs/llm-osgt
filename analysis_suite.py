@@ -30,7 +30,7 @@ except ImportError:
     print("Error: Could not import evaluation_harness.py. Make sure it's in the same directory.")
 
 #%%
-# --- Matplotlib Configuration ---
+# --- Matplotlib Config ---
 plt.rcParams.update({'font.size': 16, 
                      'figure.autolayout': True, 
                      'font.family': 'monospace'})
@@ -38,7 +38,8 @@ AXIS_LABEL_FONTSIZE = 18
 TITLE_FONTSIZE = 18
 LEGEND_FONTSIZE = 16
 OPPONENT_CODE_VARIABLE_NAME = "opponent_program_code" 
-# --- LLM-as-Judge Configuration ---
+
+# --- LLM-as-Judge Config ---
 LLM_JUDGE_MODEL = "gpt-4o"
 STRATEGIC_RESPONSE_CATEGORIES = [
     "Independent_Development", "Counter_Measure", "Exploitation_Attempt",
@@ -79,7 +80,7 @@ def find_experiment_runs(base_dir: Path) -> List[Path]:
     return run_dirs
 
 def load_file_content(filepath: Path) -> Optional[str]:
-    """Safely loads text content from a file."""
+    """Loads text content from a file."""
     if filepath and filepath.exists():
         try:
             return filepath.read_text(encoding='utf-8')
@@ -118,8 +119,7 @@ def get_radon_metrics(code: Optional[str]) -> Dict[str, Any]:
 
 def average_radon_metrics_across_experiments(results_base_dir: Path, games_to_run: Optional[List[str]] = None) -> Tuple[Optional[pd.DataFrame], Optional[pd.DataFrame], Optional[pd.DataFrame]]:
     """
-    Finds all experiments (pairing folders), aggregates metrics, and returns the mean, SEM, and per-experiment data.
-    Can be filtered to run only on specific games.
+    Finds all experiments, aggregates metrics, and returns the mean, SEM, and per-experiment data. Can be filtered to run only on specific games.
     """
     print(f"\n{'='*20} AGGREGATING METRICS ACROSS ALL EXPERIMENTS {'='*20}")
     print(f"Scanning for experiments in: {results_base_dir}")
@@ -245,7 +245,6 @@ class TaintTracker(ast.NodeVisitor):
         if isinstance(node, ast.Name):
             return node.id
         if isinstance(node, ast.Attribute):
-            # Represents 'self.opponent_code' as one identifier
             base = self._get_node_id(node.value)
             if base:
                 return f"{base}.{node.attr}"
@@ -268,7 +267,7 @@ class TaintTracker(ast.NodeVisitor):
                 target_id = self._get_node_id(target)
                 if target_id:
                     self.tainted_vars.add(target_id)
-        else: # Handle untainting on reassignment
+        else:
             for target in node.targets:
                 target_id = self._get_node_id(target)
                 if target_id and target_id in self.tainted_vars:
@@ -278,7 +277,6 @@ class TaintTracker(ast.NodeVisitor):
     def _increment_score(self, node: ast.AST):
         """Increments score for a node if it hasn't been scored yet."""
         if node not in self.scored_nodes:
-            # Find the parent statement to score it only once per line
             current = node
             while hasattr(current, 'parent') and not isinstance(current, ast.stmt):
                 current = current.parent
@@ -321,7 +319,6 @@ def calculate_osas(code: Optional[str], opponent_var_name: str) -> int:
         return 0
     try:
         tree = ast.parse(code)
-        # Add parent pointers for context
         for node in ast.walk(tree):
             for child in ast.iter_child_nodes(node):
                 child.parent = node
@@ -334,8 +331,8 @@ def calculate_osas(code: Optional[str], opponent_var_name: str) -> int:
 
 def extract_pairing_name(folder_name: str) -> str:
     """
-    Extracts a clean 'AGENT vs AGENT' legend label from a long folder name.
-    Example: 'results_CoinGame/Dyadic_CoinGame_CPM_vs_DPM_Kimi-K2' -> 'CPM vs DPM'
+    Extracts a clean legend label from folder name.
+    Ex: 'results_CoinGame/Dyadic_CoinGame_CPM_vs_DPM_Kimi-K2' returns 'CPM vs DPM'
     """
     match = re.search(r'(CPM|DPM|PM)_vs_(CPM|DPM|PM)', folder_name)
     if match:
@@ -437,7 +434,6 @@ def generate_individual_metric_plots(mean_df: pd.DataFrame, sem_df: pd.DataFrame
         'osas': ('Opponent Script Access Score (OSAS)', 'Average OSAS'),
     }
 
-    # Color mapping needs to be recreated here for the specific subset of data
     unique_experiments = per_experiment_data.index.get_level_values('experiment').unique()
     label_map = {name: extract_pairing_name(name) for name in unique_experiments}
     unique_labels = sorted(list(set(label_map.values())))
@@ -605,7 +601,7 @@ def analyze_dyadic_metrics(all_runs_data: List[pd.DataFrame], output_dir: Path):
     plot_metric('osas', 'Opponent Script Access Score (OSAS) Over Time', 'OSAS')
 
 def get_agent_color(agent_name: str) -> str:
-    """Returns a specific color based on keywords in the agent's name."""
+    """Returns color based on agent name."""
     if "CPM" in agent_name:
         return 'green'
     elif "DPM" in agent_name:
@@ -615,7 +611,7 @@ def get_agent_color(agent_name: str) -> str:
     return 'blue'
 
 def _plot_llm_judge_custom_panel(results_df: pd.DataFrame, all_runs_data: List[pd.DataFrame], output_dir: Path):
-    """Generates a custom 2x2 panel of line plots for specific strategic responses."""
+    """Generates a 2x2 panel of line plots for specific strategic responses."""
     agent_A_label = all_runs_data[0]['agent_A'].iloc[0]
     agent_B_label = all_runs_data[0]['agent_B'].iloc[0]
     agent_labels = {'A': agent_A_label, 'B': agent_B_label}
@@ -670,7 +666,7 @@ def _plot_llm_judge_custom_panel(results_df: pd.DataFrame, all_runs_data: List[p
     plt.close(fig)
 
 def _plot_llm_judge_line_plots(results_df: pd.DataFrame, all_runs_data: List[pd.DataFrame], output_dir: Path):
-    """Generates detailed line plots for strategic response proportions with updated colors."""
+    """Generates detailed line plots for strategic response proportions."""
     agent_A_label = all_runs_data[0]['agent_A'].iloc[0]
     agent_B_label = all_runs_data[0]['agent_B'].iloc[0]
     agent_labels = {'A': agent_A_label, 'B': agent_B_label}
@@ -720,7 +716,7 @@ def _plot_llm_judge_line_plots(results_df: pd.DataFrame, all_runs_data: List[pd.
     plt.close(fig)
 
 def _plot_llm_judge_full_panel(results_df: pd.DataFrame, all_runs_data: List[pd.DataFrame], output_dir: Path):
-    """Generates a full panel of line plots with updated colors."""
+    """Generates a full panel of line plots."""
     agent_A_label = all_runs_data[0]['agent_A'].iloc[0]
     agent_B_label = all_runs_data[0]['agent_B'].iloc[0]
     agent_labels = {'A': agent_A_label, 'B': agent_B_label}
@@ -773,10 +769,8 @@ def _plot_llm_judge_full_panel(results_df: pd.DataFrame, all_runs_data: List[pd.
     plt.savefig(plot_path, bbox_inches='tight')
     plt.close(fig)
 
-# --- Add this new helper function somewhere in your script ---
-
 def _get_agent_types_from_pairing(pairing_name: str) -> Optional[Tuple[str, str]]:
-    """Extracts agent types like ('CPM', 'DPM') from a pairing directory name."""
+    """Extracts agent types from a pairing directory name."""
     match = re.search(r'(CPM|DPM|PM)_vs_(CPM|DPM|PM)', pairing_name)
     if match:
         return match.group(1), match.group(2)
@@ -785,7 +779,7 @@ def _get_agent_types_from_pairing(pairing_name: str) -> Optional[Tuple[str, str]
 
 def load_all_payoff_data_by_agent(results_base_dir: Path, games_to_run: Optional[List[str]] = None) -> Optional[pd.DataFrame]:
     """
-    Finds all experiments, aggregates logged scores BY AGENT TYPE, and returns
+    Finds all experiments, aggregates logged scores by agent type and returns
     a single long-form DataFrame.
     """
     print(f"\n{'='*20} AGGREGATING PAYOFFS BY AGENT TYPE {'='*20}")
@@ -863,7 +857,7 @@ def load_all_payoff_data_by_agent(results_base_dir: Path, games_to_run: Optional
 
 def load_all_llm_judge_data(base_dir: Path, games_to_run: Optional[List[str]] = None) -> Optional[pd.DataFrame]:
     """
-    Finds and aggregates all 'llm_judge_cache.csv' files from individual analyses.
+    Finds and aggregates all LLM-as-judge cache files from individual analyses.
     """
     print(f"\n{'='*20} AGGREGATING LLM-AS-JUDGE DATA {'='*20}")
     cache_files = list(base_dir.rglob('llm_judge_cache.csv'))
@@ -879,7 +873,6 @@ def load_all_llm_judge_data(base_dir: Path, games_to_run: Optional[List[str]] = 
             game_name = [p.name for p in cache_file.parents if p.name.startswith('results_')][0].replace('results_', '')
             pairing_name = cache_file.parent.parent.name
             
-            # Filter by game if requested
             if games_to_run and not any(game in game_name for game in games_to_run):
                 continue
             
@@ -892,7 +885,6 @@ def load_all_llm_judge_data(base_dir: Path, games_to_run: Optional[List[str]] = 
             df['game'] = game_name
             df['pairing'] = pairing_name
             
-            # Map agent 'A'/'B' to actual types like 'CPM'/'DPM'
             df['acting_agent'] = df['agent'].apply(lambda x: agent_types[0] if x == 'A' else agent_types[1])
             df['opponent_agent'] = df['agent'].apply(lambda x: agent_types[1] if x == 'A' else agent_types[0])
             
@@ -930,10 +922,9 @@ def plot_aggregated_strategy_panel(all_llm_data: pd.DataFrame, output_dir: Path)
     for response_type in response_types:
         try:
             max_val = (final_stats[(response_type, 'mean')] + final_stats[(response_type, 'sem')]).max()
-            # Set a minimum limit of 1.0 just in case max is 0
             metric_ylims[response_type] = (0, max(max_val * 100 * 1.1, 1.0)) 
         except KeyError:
-            metric_ylims[response_type] = (0, 10) # Default small limit
+            metric_ylims[response_type] = (0, 10)
 
     agent_groups = ['CPM', 'DPM', 'PM']
     game_map = {
@@ -1006,7 +997,7 @@ def plot_aggregated_strategy_panel(all_llm_data: pd.DataFrame, output_dir: Path)
 
 def plot_aggregated_payoff_bars(all_payoff_data: pd.DataFrame, output_dir: Path):
     """
-    Generates a 1xN panel of grouped bar plots for average payoff, side-by-side.
+    Generates a 1xN panel of grouped bar plots for average payoffs, side-by-side.
     """
     print("\nGenerating aggregated payoff bar panel...")
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -1112,20 +1103,20 @@ def generate_strategy_proportion_table(all_llm_data: pd.DataFrame, output_dir: P
     data = pd.concat([all_llm_data[['game', 'pairing', 'seed', 'meta_round']], one_hot], axis=1)
     
     # 3. Calculate proportions *within* each run/round
-    # This averages the one-hot columns (e.g., 2 agents, 1 is 'Counter') -> mean = 0.5
+    # Averages the one-hot columns
     proportions_per_run_round = data.groupby(['game', 'pairing', 'seed', 'meta_round']).mean(numeric_only=True)
     
     # 4. Calculate the average of these proportions across all runs
-    # This gives the final mean proportion for a given game and round
+    # Gives the final mean proportion for a given game and round
     avg_proportions_by_round = proportions_per_run_round.groupby(['game', 'meta_round']).mean()
     
-    # 5. Format the table as requested
+    # 5. Format the table
     
-    # Stack the classification columns (e.g., 'Counter_Measure') into a new index level
+    # Stack the classification cols into a new index level
     stacked_data = avg_proportions_by_round.stack()
     stacked_data.name = 'avg_proportion'
     
-    # Unstack the 'meta_round' to turn it into columns
+    # Unstack the 'meta_round' into columns
     final_table = stacked_data.unstack('meta_round')
     
     # Convert to percentages
@@ -1138,16 +1129,16 @@ def generate_strategy_proportion_table(all_llm_data: pd.DataFrame, output_dir: P
     for game in final_table_pct.index.get_level_values('game').unique():
         print(f"\nGame: {game}\n")
         game_table = final_table_pct.loc[game]
-        # Fill NaN with 0.0 for cleaner output
+        # Fill NaN with 0.0
         game_table = game_table.fillna(0.0)
         
-        # Format the column headers to be integers (e.g., '1' instead of '1.0')
+        # Format column headers
         game_table.columns = game_table.columns.astype(int)
         
         print(game_table.to_string(float_format="%.2f%%"))
         print("-" * 80)
 
-    # Optionally, save to CSV
+    # CSV saving
     csv_path = output_dir / "aggregate_strategy_proportions.csv"
     final_table_pct.to_csv(csv_path)
     print(f"Table also saved to: {csv_path}")
@@ -1295,7 +1286,7 @@ def plot_aggregated_payoff_plot(mean_df: pd.DataFrame, sem_df: pd.DataFrame, per
 
 
 def run_llm_as_judge(all_runs_data: List[pd.DataFrame], output_dir: Path, client: openai.OpenAI):
-    """Classifies strategic responses using an LLM and generates visualizations."""
+    """Classifies strategic responses using an LLM-as-judge and generates visualizations."""
     if not client:
         print("Skipping LLM-as-Judge analysis: OpenAI client not available.")
         return
@@ -1340,7 +1331,7 @@ def run_llm_as_judge(all_runs_data: List[pd.DataFrame], output_dir: Path, client
         print("No LLM judge results to plot.")
         return
 
-    # Visualization 1: Stacked Bar Charts
+    # Vis 1: Stacked Bar Charts
     pivot = results_df.groupby(['meta_round', 'agent', 'classification']).size().unstack(fill_value=0)
     proportions = pivot.div(pivot.sum(axis=1), axis=0).reset_index()
 
@@ -1371,7 +1362,7 @@ def run_llm_as_judge(all_runs_data: List[pd.DataFrame], output_dir: Path, client
         plt.savefig(plot_path)
         plt.close()
 
-    # Visualization 2: All Line Plots and Panels
+    # Vis 2: All Line Plots and Panels
     _plot_llm_judge_line_plots(results_df, all_runs_data, output_dir)
     _plot_llm_judge_full_panel(results_df, all_runs_data, output_dir)
     _plot_llm_judge_custom_panel(results_df, all_runs_data, output_dir)
@@ -1379,7 +1370,7 @@ def run_llm_as_judge(all_runs_data: List[pd.DataFrame], output_dir: Path, client
 def load_and_compile_programs(run_dir: Path, game: harness.Game) -> bool:
     """
     Finds all .py files in a run's program_strategies folder, compiles them,
-    and populates the global PROGRAMS dictionary from the harness.
+    and populates the global program dictionary from the harness.
     """
     harness.PROGRAMS.clear()
     prog_dir = run_dir / "program_strategies"
@@ -1419,7 +1410,7 @@ def load_and_compile_programs(run_dir: Path, game: harness.Game) -> bool:
 
 def analyze_match_dynamics(pairing_dir: Path) -> Optional[pd.DataFrame]:
     """
-    Runs simulations for all seeds in a pairing to get payoff & action data.
+    Runs simulations for all seeds in a pairing to get payoffs & action data.
     """
     print("\n--- Running Match Dynamics Analysis (Payoffs & Cooperation) ---")
     run_dirs = find_experiment_runs(pairing_dir)
@@ -1427,10 +1418,10 @@ def analyze_match_dynamics(pairing_dir: Path) -> Optional[pd.DataFrame]:
         print("No run directories found for match dynamics analysis.")
         return None
 
-    # Determine the game type from the folder name
+    # Determine the game type
     dir_name = pairing_dir.parent.name
     if 'IPD' in dir_name:
-        game = harness.IPDGame(rounds=100) # Assuming 100 rounds for accurate stats
+        game = harness.IPDGame(rounds=100)
     elif 'CoinGame' in dir_name:
         game = harness.CoinGame(max_steps=50, board_size=3)
     else:
@@ -1500,13 +1491,11 @@ def analyze_match_dynamics(pairing_dir: Path) -> Optional[pd.DataFrame]:
     results_df = pd.DataFrame(all_run_results)
     grouped = results_df.groupby('meta_round')
     
-    # --- START CORRECTION ---
     # Specify numeric_only=True to ignore string columns like agent labels
     mean_df = grouped.mean(numeric_only=True)
     sem_df = grouped.sem(numeric_only=True)
-    # --- END CORRECTION ---
     
-    # Combine into a single DataFrame for easier plotting
+    # Combine into a single DataFrame
     final_df = mean_df.merge(sem_df, on='meta_round', suffixes=('_mean', '_sem'))
     # Preserve agent labels for plotting titles/legends
     final_df['agent_A_label'] = results_df.groupby('meta_round')['agent_A_label'].first()
@@ -1548,7 +1537,7 @@ def plot_payoffs_over_time(dynamics_df: pd.DataFrame, output_dir: Path):
 def plot_ipd_behavior_over_time(dynamics_df: pd.DataFrame, output_dir: Path):
     """Plots cooperation and defection rates over meta-rounds for IPD."""
     if 'coop_rate_A_mean' not in dynamics_df.columns or dynamics_df['coop_rate_A_mean'].isnull().all():
-        return # Skip if no cooperation data is available
+        return # Skip if no cooperation data available
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6), sharey=True)
     fig.suptitle("IPD Action Rates vs. Meta-Round", fontsize=TITLE_FONTSIZE)
@@ -1600,7 +1589,7 @@ def get_llm_classification(
     current_meta_round: int
 ) -> Tuple[str, str]:
     """
-    Classifies an agent's strategic response using a detailed prompt.
+    Classifies an agent's strategic response using an LLM-as-judge and a specified prompt.
     """
     if not agent_strategy_t and not agent_code_t:
         return "Data_Missing", "Agent's strategy and code for current round are missing."
@@ -1675,25 +1664,25 @@ Analyze the provided data. Respond with a JSON object containing two keys: "clas
 
 # --- Evolutionary Analysis ---
 
-# --- EGT Simplex Plotting Helpers (from simplex.py) ---
+# --- EGT Simplex Plotting Helpers ---
 simplex_r0 = np.array([0, 0])
 simplex_r1 = np.array([1, 0])
 simplex_r2 = np.array([0.5, np.sqrt(3)/2.])
 simplex_corners = np.array([simplex_r0, simplex_r1, simplex_r2])
 simplex_triangle = tri.Triangulation(simplex_corners[:, 0], simplex_corners[:, 1])
 
-# --- Simplex Figure Size Constants ---
-SIMPLEX_FIGSIZE = (14, 13)  # Standardized figure size for all simplex plots
-SIMPLEX_PANEL_FIGSIZE = (28, 13)  # Figure size for side-by-side simplex panel
+# --- Simplex Size Constants ---
+SIMPLEX_FIGSIZE = (14, 13)
+SIMPLEX_PANEL_FIGSIZE = (28, 13)
 
-# --- Simplex Dynamics Plotting Class (from simplex.py) ---
+# --- Simplex Dynamics Plotter ---
 class SimplexDynamicsPlotter:
     r0, r1, r2 = np.array([0,0]), np.array([1,0]), np.array([0.5, np.sqrt(3)/2.])
     corners = np.array([r0, r1, r2])
     triangle = tri.Triangulation(corners[:,0], corners[:,1])
     try:
         refiner = tri.UniformTriRefiner(triangle)
-        trimesh = refiner.refine_triangulation(subdiv=5) # Mesh density
+        trimesh = refiner.refine_triangulation(subdiv=5) # mesh density
     except Exception as e:
         print(f"Warning: Could not initialize trimesh: {e}")
         refiner = None
@@ -1703,7 +1692,7 @@ class SimplexDynamicsPlotter:
         self.f = replicator_func
         self.strategy_labels = strategy_labels
         self.corner_label_fontsize = corner_label_fontsize
-        if self.trimesh is None: # Fallback initialization
+        if self.trimesh is None: # fallback
             print("Info: Initializing trimesh in __init__.")
             SimplexDynamicsPlotter.refiner = tri.UniformTriRefiner(self.triangle)
             SimplexDynamicsPlotter.trimesh = SimplexDynamicsPlotter.refiner.refine_triangulation(subdiv=5)
@@ -1802,7 +1791,6 @@ def plot_simplex_from_tournament_data(
     ):
     """
     Generates and saves a simplex plot using data from tournament outputs.
-    (Adapted from simplex.py)
     """
     print(f"\n--- Generating Simplex Plot for Tournament: {tournament_run_name} ---")
     print(f"  Reading payoff matrix: {payoff_matrix_path}")
@@ -1810,7 +1798,7 @@ def plot_simplex_from_tournament_data(
         print(f"  Reading population history for trajectory: {population_history_path}")
 
     try:
-        payoff_df = pd.read_csv(payoff_matrix_path, index_col=0) # Set index_col=0
+        payoff_df = pd.read_csv(payoff_matrix_path, index_col=0) # setting index_col=0
         strategy_labels = list(payoff_df.columns)
         payoff_matrix = payoff_df.to_numpy()
         if len(strategy_labels) != 3 or payoff_matrix.shape != (3,3):
@@ -1921,7 +1909,7 @@ def plot_moran_trajectories_on_simplex(
     # 1. Draw the blank simplex triangle
     ax.triplot(simplex_triangle, lw=0.8, c="darkgrey", zorder=1)
 
-    # 2. Define a local barycentric-to-cartesian converter
+    # 2. Define a local barycentric to cartesian converter
     def ba2xy(ba):
         ba=np.array(ba)
         return simplex_corners.T.dot(ba.T).T if ba.ndim > 1 else simplex_corners.T.dot(ba)
@@ -1943,7 +1931,7 @@ def plot_moran_trajectories_on_simplex(
             traj_xy = ba2xy(traj_ba_normalized)
             x_coords, y_coords = traj_xy[:, 0], traj_xy[:, 1]
             
-            # Plot the line with some transparency
+            # Plot the line
             ax.plot(x_coords, y_coords, c=colors[i], lw=2.0, ls='-',
                     alpha=0.6, label=f'Seed {i+1}', zorder=4)
             
@@ -1965,7 +1953,7 @@ def plot_moran_trajectories_on_simplex(
     ax.axis('equal'); ax.axis('off')
     ax.set_ylim(ymin=-0.1, ymax=simplex_corners[2,1]+0.1); ax.set_xlim(xmin=-0.1, xmax=1.1)
     
-    if len(history_paths) <= 15: # Add a legend if it's not too crowded
+    if len(history_paths) <= 15: # Add a legend if not overcrowded
         ax.legend(loc='upper left', bbox_to_anchor=(1.02, 1), borderaxespad=0., fontsize=LEGEND_FONTSIZE)
     
     plt.title("Moran Process Trajectories (All Seeds)", fontsize=main_title_fontsize)
@@ -1988,8 +1976,7 @@ def plot_simplex_panel_from_dyadic_data(
     main_title_fontsize: int = 34
     ):
     """
-    Creates a side-by-side simplex panel with Coin Game and IPD plots.
-    Both simplexes will have exactly the same size.
+    Creates a side-by-side simplex panel with equally-sized Coin Game and IPD plots.
     """
     print(f"\n--- Generating Side-by-Side Simplex Panel ---")
     print(f"  Coin Game matrix: {coin_game_matrix_path}")
@@ -2015,10 +2002,10 @@ def plot_simplex_panel_from_dyadic_data(
         print(f"Error loading payoff matrices: {e}")
         return
     
-    # Create the panel figure
+    # panel figure
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=SIMPLEX_PANEL_FIGSIZE)
     
-    # Define replicator dynamics function
+    # replicator dynamics function
     def replicator_dyn(x_props, t, A_matrix):
         x_props = np.clip(np.array(x_props), 0, 1)
         x_sum = np.sum(x_props)
@@ -2036,7 +2023,7 @@ def plot_simplex_panel_from_dyadic_data(
         )
         plotter1.plot_dynamics_simplex(ax1, colorbar_label_fontsize=colorbar_label_fontsize, show_colorbar_label=True)
         
-        # Add title for Coin Game
+        # title (CG)
         ax1.text(0.08, 0.5, "Coin Game", transform=ax1.transAxes, 
                 fontsize=main_title_fontsize, va='center', ha='right', 
                 rotation=90, fontfamily='monospace', weight='bold')
@@ -2054,7 +2041,7 @@ def plot_simplex_panel_from_dyadic_data(
         )
         plotter2.plot_dynamics_simplex(ax2, colorbar_label_fontsize=colorbar_label_fontsize, show_colorbar_label=True)
         
-        # Add title for IPD
+        # title (IPD)
         ax2.text(0.08, 0.5, "IPD", transform=ax2.transAxes, 
                 fontsize=main_title_fontsize, va='center', ha='right', 
                 rotation=90, fontfamily='monospace', weight='bold')
@@ -2076,11 +2063,11 @@ def plot_simplex_panel_from_dyadic_data(
 def generate_payoff_matrices(all_payoff_data: pd.DataFrame, output_dir: Path):
     """
     Computes and saves payoff matrices from aggregated dyadic run data.
-    Matrix[row, col] = Payoff of 'row' agent when playing 'col' agent.
+    Matrix[row, col] = Payoff won by 'row' agent against 'col' agent.
     """
     print(f"\n{'='*20} GENERATING PAYOFF MATRICES {'='*20}")
     
-    # 1. Calculate the mean payoff for each agent in each run (averaging across meta-rounds)
+    # 1. Calculate the mean payoff for each agent in each run (avg across meta-rounds)
     grouping_vars = ['game', 'pairing', 'seed', 'acting_agent', 'opponent_agent']
     payoffs_per_run = all_payoff_data.groupby(grouping_vars)['payoff'].mean().reset_index()
 
@@ -2089,7 +2076,6 @@ def generate_payoff_matrices(all_payoff_data: pd.DataFrame, output_dir: Path):
 
     # 3. Get unique games and agents
     unique_games = all_payoff_data['game'].unique()
-    # Use 'acting_agent' to get the list of all agents
     agent_groups = sorted(list(all_payoff_data['acting_agent'].unique()))
     print(f"Found games: {unique_games}")
     print(f"Found agents: {agent_groups}")
@@ -2101,17 +2087,16 @@ def generate_payoff_matrices(all_payoff_data: pd.DataFrame, output_dir: Path):
     # 4. Create a matrix for each game
     for game in unique_games:
         print(f"\n--- Payoff Matrix for: {game} ---")
-        # Initialize an empty matrix
+        # Initialize empty
         payoff_matrix = pd.DataFrame(index=agent_groups, columns=agent_groups, dtype=float)
         
-        for row_agent in agent_groups: # The "Actor"
-            for col_agent in agent_groups: # The "Opponent"
+        for row_agent in agent_groups: # actor
+            for col_agent in agent_groups: # opponent
                 try:
                     # Get the mean payoff of row_agent playing col_agent
                     mean_payoff = final_stats.loc[(game, row_agent, col_agent)]['mean']
                     payoff_matrix.loc[row_agent, col_agent] = mean_payoff
                 except KeyError:
-                    # This pairing (e.g., PM vs PM) might not exist in the data
                     payoff_matrix.loc[row_agent, col_agent] = np.nan
 
         print("Payoff for 'row' agent vs 'column' agent:")
@@ -2131,7 +2116,7 @@ def analyze_moran_process(moran_histories: List[pd.DataFrame], output_dir: Path)
         print("No Moran process data to analyze.")
         return
 
-    # Align columns and concatenate
+    # Align and concat
     all_history_df = pd.concat([df.set_index('moran_step') for df in moran_histories], axis=1, keys=range(len(moran_histories)))
     
     mean_df = all_history_df.groupby(level=1, axis=1).mean()
@@ -2214,8 +2199,7 @@ def main():
 
                 openai_client = load_api_key()
 
-                # --- START FIX ---
-                # 1. Check for EVOLUTIONARY data at the PAIRING level FIRST
+                # 1. Check for evolutionary data first
                 payoff_path = pairing_dir / "payoff_matrix.csv"
                 moran_path = pairing_dir / "moran_process_history.csv"
 
@@ -2224,23 +2208,23 @@ def main():
                     try:
                         tournament_run_name = pairing_dir.name
                         
-                        # Plot 1: Replicator Dynamics (Flow field from AVG matrix, NO trajectories)
+                        # Plot 1: Replicator Dynamics (flow field from mean matrix w/out trajectories)
                         print("  Generating Replicator Dynamics simplex plot (no trajectories)...")
                      
                         game_name = pairing_dir.parent.name.replace('results_', '')
                         title = game_name
                         plot_simplex_from_tournament_data(
                             payoff_matrix_path=payoff_path,
-                            population_history_path=moran_path, # Not used, but required by func
+                            population_history_path=moran_path,
                             output_dir=output_dir,
                             tournament_run_name=tournament_run_name,
                             plot_title=title,
                             show_trajectory=False
                         )
 
-                        # Plot 2: Moran Trajectories (BLANK simplex, ALL trajectories)
+                        # Plot 2: Moran Trajectories 
                         print("  Generating Moran Trajectories simplex plot...")
-                        # Find ALL seed history files
+                        # Find seed history files
                         history_paths = list(pairing_dir.glob("moran_process_history_seed_*.csv"))
                         
                         if history_paths:
@@ -2262,7 +2246,7 @@ def main():
                         print(f"Error processing evolutionary data in {pairing_dir}: {e}")
                         traceback.print_exc()
 
-                # 2. If not evolutionary, process as DYADIC data by looking at run_dirs
+                # 2. If not evolutionary, process as dyadic
                 else:
                     print("\n--- No evolutionary data found, checking for Dyadic Meta-Game Data ---")
                     run_dirs = find_experiment_runs(pairing_dir)
@@ -2328,10 +2312,8 @@ def main():
                 mean_df_game = grouped_game[metrics_to_average].mean()
                 sem_df_game = grouped_game[metrics_to_average].sem()
 
-                # Call the new function to generate and save the individual plots in the subfolder
                 generate_individual_metric_plots(mean_df_game, sem_df_game, per_experiment_data_game, game_subdir)
 
-                # --- NEW SECTION for individual payoff plots ---
                 if payoff_per_exp_all is not None and not payoff_per_exp_all.empty:
                     print(f"  - Preparing payoff plot for {game_name} in: {game_subdir}")
                     # Filter the payoff data for the current game
@@ -2343,7 +2325,6 @@ def main():
                         mean_df_payoff_game = grouped_payoff_game[['payoff']].mean()
                         sem_df_payoff_game = grouped_payoff_game[['payoff']].sem()
                         
-                        # Call the new function to generate the plot
                         generate_individual_payoff_plot(mean_df_payoff_game, sem_df_payoff_game, payoff_per_exp_game, game_subdir)
                     else:
                         print(f"    - No payoff data found for {game_name}.")
@@ -2364,7 +2345,7 @@ def main():
             plot_aggregated_payoff_bars(all_payoff_data, aggregated_output_dir)
             generate_payoff_matrices(all_payoff_data, aggregated_output_dir)
 
-            # --- NEW: Generate Simplex Plots from Dyadic Payoff Matrices ---
+            # --- Generate Simplexes from Dyadic Payoff Matrices ---
             print("\n--- Generating Replicator Dynamics Simplex Plots (from Aggregated Dyadic Data) ---")
             
             # We can only generate a simplex if there are exactly 3 agent types
