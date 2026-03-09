@@ -14,7 +14,6 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from datetime import datetime
 import ast
-# ADDED: Import for t-tests
 from scipy.stats import ttest_ind
 
 
@@ -31,9 +30,8 @@ try:
 except ImportError:
     HAS_DFI = False
 
-# --- Configuration ---
+# --- Config ---
 DEFAULT_MODEL_CONFIGS = [
-    ## First run: Obfuscated runs for both of these models
     {
         "name": "deepseek-ai/DeepSeek-R1", 
         "api": "huggingface", 
@@ -102,7 +100,7 @@ DEFAULT_MODEL_CONFIGS = [
     }
 ]
 
-# --- Manual Overrides for specific files ---
+# --- Manual Overrides ---
 MANUAL_OVERRIDES = {
     # Filename: is_stochastic (True/False)
     "NMWEDeterministic.py": False,
@@ -133,7 +131,7 @@ def count_loc(filepath):
 
 def parse_classifier_info(filepath):
     """
-    Parses a Python file using AST to find 'stochastic' and 'memory_depth'
+    Parses a Python file with AST to find 'stochastic' and 'memory_depth'
     within the first 'classifier' dictionary found in any class.
     """
     result = {'stochastic': None, 'memory_depth': None, 'status': 'no_classifier'}
@@ -172,7 +170,6 @@ def parse_classifier_info(filepath):
                                     else:
                                         print(f"Warning: Invalid value for 'stochastic' in {os.path.basename(filepath)}")
                                         result['status'] = 'invalid_stochastic'
-                                        # Keep going to check memory depth
 
                                 # --- Parse Memory Depth ---
                                 elif key_name == 'memory_depth':
@@ -187,11 +184,10 @@ def parse_classifier_info(filepath):
                                             len(value_node.args) == 1 and
                                             isinstance(value_node.args[0], ast.Constant) and
                                             value_node.args[0].value == 'inf'):
-                                        result['memory_depth'] = float('inf') # Use actual infinity
+                                        result['memory_depth'] = float('inf')
                                     else:
                                         print(f"Warning: Unrecognized value for 'memory_depth' in {os.path.basename(filepath)}")
                                         result['status'] = 'invalid_memory'
-                                        # Keep going to check stochastic
 
                             # --- Determine overall status after checking keys ---
                             if result['status'] not in ['invalid_stochastic', 'invalid_memory']: # If no specific value error occurred
@@ -227,7 +223,7 @@ def parse_classifier_info(filepath):
 
 def get_strategy_stats_from_files(strategies_dir):
     """
-    Analyzes Python files in a directory using AST parsing
+    Analyzes Python files in a directory with AST parsing
     to extract strategy statistics safely without execution.
     Compares found files against axelrod.all_strategies if available.
     Applies manual overrides for stochastic status for specified files.
@@ -254,7 +250,6 @@ def get_strategy_stats_from_files(strategies_dir):
             official_strategy_classes = set()
     else:
         print("Skipping check against axelrod.all_strategies.")
-    # --- End Axelrod Check ---
 
     py_files = glob.glob(os.path.join(strategies_dir, '*.py'))
     print(f"Found {len(py_files)} Python files in {strategies_dir}.")
@@ -308,19 +303,19 @@ def get_strategy_stats_from_files(strategies_dir):
             stats['loc_counts_matched'].append(loc) # Add LOC only if successful
 
 
-        # --- Check for Manual Override (Stochastic only) ---
+        # --- Check for Manual Override (Stochastic) ---
         if filename in MANUAL_OVERRIDES:
             stochastic_flag = MANUAL_OVERRIDES[filename]
             status = 'manual_override_stochastic' # Specific status
             is_manual_override = True
             stats['files_manually_classified'].append(filename)
             print(f"      - Applying manual override for {filename}: stochastic={stochastic_flag}")
-            # Attempt to parse memory depth even if stochastic is overridden
+            # Attempt to parse memory depth
             parsed_info = parse_classifier_info(filepath)
             memory_depth = parsed_info['memory_depth']
             if parsed_info['status'] == 'parse_error' and status != 'loc_read_error':
                 stats['parse_read_errors'] += 1
-                stats['files_with_issues'].append((filename, 'parse_error_override')) # Special issue code
+                stats['files_with_issues'].append((filename, 'parse_error_override'))
             elif memory_depth is None and parsed_info['status'] not in ['parse_error', 'no_classifier', 'invalid_classifier_format']:
                 stats['files_with_issues'].append((filename, 'missing_memory_override'))
         else:
@@ -328,7 +323,6 @@ def get_strategy_stats_from_files(strategies_dir):
             stochastic_flag = parsed_info['stochastic']
             memory_depth = parsed_info['memory_depth']
             status = parsed_info['status'] 
-        # --- End Override/Parsing ---
 
 
         # --- Tally Results ---
@@ -360,8 +354,6 @@ def get_strategy_stats_from_files(strategies_dir):
                 if loc is not None: stats['parse_read_errors'] += 1
             if not any(f == filename for f,s in stats['files_with_issues']): 
                 stats['files_with_issues'].append((filename, status))
-        # --- End Tally Results ---
-
 
     # Calculate final stats
     if stats['loc_counts_matched']:
@@ -373,7 +365,7 @@ def get_strategy_stats_from_files(strategies_dir):
         stats['max_loc'] = 0
         stats['avg_loc'] = 0.0
 
-    # --- Print Detailed File Lists ---
+    # --- Print File Lists (Detailed) ---
     print(f"\nAnalysis complete.")
     print(f" -> Analyzed {stats['strategies_analyzed']} strategies (matching Axelrod list or check skipped) where classifier info could be partially or fully obtained.")
 
@@ -505,15 +497,12 @@ def create_summary_table(df, output_dir, model_configs=None, prompt_order=None, 
     if prompt_order is None: prompt_order = ['ZS', 'FS', 'COT'] # Default if not specified
     if model_display_names is None: model_display_names = {cfg['name']: cfg.get('display_name', cfg['name']) for cfg in model_configs}
 
-
     # Ensure 'Program_Type' and 'Prompt Strategy' are categorical with the desired order
     perturbation_order = [pt for pt in ['unmasked', 'masked', 'obfuscated'] if pt in df['Program_Type'].unique()]
     current_prompt_order = [p for p in prompt_order if p in df['Prompt Strategy'].unique()]
 
-
     df['Program_Type'] = pd.Categorical(df['Program_Type'], categories=perturbation_order, ordered=True)
     df['Prompt Strategy'] = pd.Categorical(df['Prompt Strategy'], categories=current_prompt_order, ordered=True)
-
 
     # Get the desired model order based on their source_type
     source_type_order = ['reasoning', 'closed', 'open']
@@ -527,9 +516,7 @@ def create_summary_table(df, output_dir, model_configs=None, prompt_order=None, 
         if model_name not in model_order_sorted:
             model_order_sorted.append(model_name)
 
-
     current_model_display_names = {name: model_display_names.get(name, name) for name in model_order_sorted}
-
 
     try:
         df['Accuracy'] = df['Correct Prediction'].astype(float) * 100
@@ -583,7 +570,6 @@ def create_summary_table(df, output_dir, model_configs=None, prompt_order=None, 
 
         for pt in perturbation_order:
              pass
-
 
         new_lines = []
         last_source_type_for_table = None
@@ -670,7 +656,6 @@ def create_summary_table(df, output_dir, model_configs=None, prompt_order=None, 
         summary_formatted.to_csv(csv_path)
         print(f"Formatted wide CSV summary table saved to: {csv_path}")
 
-
 # --- Helper function to load data ---
 def load_experiment_data(results_dir, model_configs):
     """Loads and preprocesses experiment data from CSV files."""
@@ -740,7 +725,7 @@ def load_experiment_data(results_dir, model_configs):
         print("Error: 'Program_Type' column is missing. Grouped table cannot be generated.")
     return df_main
 
-# --- Other visualization functions ---
+# --- Other visualizations ---
 
 def create_confusion_matrix(df, output_file, title):
     """
@@ -1044,7 +1029,7 @@ def plot_accuracy_perturbation_comparison_zs(df_main, output_dir, model_configs=
     ax.set_xticks(bar_positions); ax.set_xticklabels(bar_labels, fontsize=32)
     ax.set_ylabel('Prediction Accuracy (%)', fontsize=32)
     ax.set_ylim(0, 100)
-    ax.yaxis.grid(False) # FIX: Correct way to turn off y-axis grid
+    ax.yaxis.grid(False)
     sns.despine()
     plt.tight_layout()
     
