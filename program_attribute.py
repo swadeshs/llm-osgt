@@ -35,7 +35,7 @@ def strip_comments_and_docstrings(source_code):
 
 def mask_strategy_names(source_code):
     """
-    Thoroughly mask strategy names throughout the code.
+    Mask strategy names throughout programs.
     """
     source_code = strip_comments_and_docstrings(source_code)
     
@@ -71,7 +71,7 @@ def mask_strategy_names(source_code):
         class_info[class_name]['masked_name'] = masked_name
         replacements[class_name] = masked_name
     
-    # Replace class names - first in definitions
+    # Replace class names; first in definitions
     for original_name, masked_name in replacements.items():
         # Replace class definition
         pattern = r'class\s+' + re.escape(original_name) + r'\b'
@@ -194,7 +194,7 @@ def add_program_attributes(refactored_dir="./refactored", obfuscated_dir=None):
             program_text = None
             program_stripped = None
             program_masked = None
-            obfuscated_code = None # Initialize as None
+            obfuscated_code = None
 
             try:
                 with open(strategy_file, 'r', encoding='utf-8') as f:
@@ -203,19 +203,18 @@ def add_program_attributes(refactored_dir="./refactored", obfuscated_dir=None):
                 # Try to fix syntax errors before processing
                 program_text = clean_syntax_errors(program_text)
 
-                # Create 'program' (stripped only)
+                # Create 'program' (stripped of comments/docstrings)
                 program_stripped = strip_comments_and_docstrings(program_text)
                 setattr(strategy, 'program', program_stripped)
 
                 # Create 'program_masked' (stripped and masked)
-                # Use the already stripped version for efficiency
                 program_masked = mask_strategy_names(program_stripped)
                 setattr(strategy, 'program_masked', program_masked)
 
-                processed_count += 1 # Count processing success for original file
+                processed_count += 1
 
                 # --- Load pre-obfuscated code ---
-                # Construct the expected obfuscated filename (e.g., MyStrategy-obf.py)
+                # Construct the expected obfuscated filename
                 base_name = os.path.basename(strategy_file)[:-3] # Get "MyStrategy"
                 obfuscated_filename = f"{base_name}-obf.py"
                 obfuscated_file_path = os.path.join(obfuscated_dir, obfuscated_filename)
@@ -228,29 +227,25 @@ def add_program_attributes(refactored_dir="./refactored", obfuscated_dir=None):
                     except Exception as e_obf:
                         print(f"  WARNING: Could not read obfuscated file {obfuscated_file_path}: {e_obf}")
                         obfuscated_missing_count += 1
-                        # obfuscated_code remains None
                 else:
                     # Only print warning if the original file was processed
                     print(f"  WARNING: Pre-obfuscated file not found: {obfuscated_file_path}")
                     obfuscated_missing_count += 1
-                    # obfuscated_code remains None
 
                 # Set the attribute (will be None if file not found or failed to read)
                 setattr(strategy, 'program_obfuscated', obfuscated_code)
-                # --- End loading pre-obfuscated code ---
 
             except Exception as e:
                 print(f"ERROR: Could not process original file {strategy_file}: {e}")
                 missing_strategies.append(strategy_name)
-                # Ensure attributes are None if processing failed mid-way
+                # Ensure attributes are None if processing failed
                 if not hasattr(strategy, 'program'): setattr(strategy, 'program', None)
                 if not hasattr(strategy, 'program_masked'): setattr(strategy, 'program_masked', None)
                 if not hasattr(strategy, 'program_obfuscated'): setattr(strategy, 'program_obfuscated', None)
-                continue  # Skip to the next strategy
+                continue  # Skip to next strategy
         else:
             missing_strategies.append(strategy_name)
 
-    # --- Updated Summary ---
     print(f"\nFinished processing.")
     print(f"Successfully processed original files for {processed_count} strategies.")
     print(f"Successfully loaded pre-obfuscated code for {obfuscated_loaded_count} strategies.")
@@ -269,7 +264,7 @@ def add_program_attributes(refactored_dir="./refactored", obfuscated_dir=None):
          print(f"\nWARNING: Failed to load or find pre-obfuscated files for {obfuscated_missing_count} strategies (set to None).")
 
 
-    # --- Updated Example Print ---
+    # --- Example Print ---
     if processed_count > 0:
         sample_strategy = next((s for s in strategies if hasattr(s, 'program') and s.program is not None), None)
 
@@ -293,7 +288,7 @@ def add_program_attributes(refactored_dir="./refactored", obfuscated_dir=None):
 
             print("\nYou can now access the modified program code using: strategy.program, strategy.program_masked, and strategy.program_obfuscated")
 
-# --- Command Line Argument Parsing ---
+# --- Main ---
 if __name__ == "__main__":
     import argparse
 
