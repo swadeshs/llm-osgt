@@ -8,8 +8,8 @@ import os
 import argparse
 from pathlib import Path
 import axelrod as axl
-from ipd_experiment import run_experiment # Assuming ipd_experiment.py is in the same directory or accessible via PYTHONPATH
-from ipd_visualization import visualize_all_results # Assuming ipd_visualization.py is accessible
+from ipd_experiment import run_experiment # needs ipd_experiment.py in the same directory/accessible via PYTHONPATH
+from ipd_visualization import visualize_all_results # assuming ipd_visualization.py is accessible
 
 #%%
 
